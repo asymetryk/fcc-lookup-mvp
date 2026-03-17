@@ -63,6 +63,9 @@ async function enrichRow(row, filingId) {
           fixedProviders.some((provider) => provider.source === 'fcc_download_cache_geography')
             ? 'Fixed provider detail was inferred from the downloaded FCC cache using the matched Census block and H3 cell because the live FCC detail endpoint rejected the request.'
             : 'Fixed provider detail was loaded from the downloaded FCC cache because the live FCC detail endpoint rejected the request.'
+      } else {
+        fixedNote =
+          'The live FCC fixed-detail endpoint rejected the request, and the downloaded FCC cache did not return a matching fixed provider record for this address. Manual review is recommended.'
       }
     }
 
