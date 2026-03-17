@@ -7,13 +7,7 @@ import {
 import { getFixedProvidersFromCache } from './fixed-cache.mjs'
 
 export async function enrichRows(rows, filingId) {
-  const results = []
-
-  for (const row of rows) {
-    results.push(await enrichRow(row, filingId))
-  }
-
-  return results
+  return mapWithConcurrency(rows, 4, (row) => enrichRow(row, filingId))
 }
 
 async function enrichRow(row, filingId) {
@@ -45,7 +39,6 @@ async function enrichRow(row, filingId) {
         detailError instanceof Error
           ? `Fixed provider detail is currently blocked by the FCC endpoint: ${detailError.message}`
           : 'Fixed provider detail is currently blocked by the FCC endpoint.'
-
       fixedProviders = await getFixedProvidersFromCache({
         filingId,
         stateAbbr: bestMatch.state ?? standardized?.state ?? null,
@@ -243,4 +236,20 @@ function groupMobileProviders(records) {
     holdingCompany: provider.holdingCompany,
     coverage: provider.coverage.map(({ signature, ...coverage }) => coverage),
   }))
+}
+
+async function mapWithConcurrency(items, limit, iteratee) {
+  const results = new Array(items.length)
+  let index = 0
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (index < items.length) {
+      const currentIndex = index
+      index += 1
+      results[currentIndex] = await iteratee(items[currentIndex], currentIndex)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
 }
