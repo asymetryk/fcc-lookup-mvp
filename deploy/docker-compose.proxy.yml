@@ -1,0 +1,20 @@
+services:
+  fcc-proxy:
+    build:
+      context: ..
+      dockerfile: Dockerfile.proxy
+    container_name: fcc-lookup-proxy
+    environment:
+      PORT: 8788
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET}
+    ports:
+      - "127.0.0.1:8788:8788"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: fcc-lookup-cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    restart: unless-stopped
