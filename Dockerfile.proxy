@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+COPY data ./data
 COPY server ./server
 
 ENV PORT=8788

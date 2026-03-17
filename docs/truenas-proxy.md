@@ -10,6 +10,7 @@ The hosted Cloudflare Pages app cannot reliably call the live FCC endpoints dire
 
 - `fcc-proxy` container: Node/Express proxy on `127.0.0.1:8788`
 - `cloudflared` container: Cloudflare Tunnel forwarding public traffic to the local proxy
+- `../data:/app/data` volume: persists the FCC download cache across container restarts
 
 ## Required secrets
 
@@ -48,5 +49,6 @@ Once those are set, the deployed Pages app will forward lookup requests to the h
 
 - The TrueNAS proxy is currently running from `/mnt/Shallow/apps/fcc-lookup-mvp`
 - The hosted Pages app has proxy forwarding enabled
-- `fcclookup-proxy.asymetryk.com` still needs to be routed to the Cloudflare Tunnel
-- The `cloudflared` container still needs a real `TUNNEL_TOKEN`
+- `fcclookup-proxy.asymetryk.com` is routed to the Cloudflare Tunnel
+- The `cloudflared` container is connected with a real `TUNNEL_TOKEN`
+- Fixed broadband now falls back to the downloaded FCC cache when the live FCC fixed-detail endpoint returns `403`

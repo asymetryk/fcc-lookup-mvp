@@ -4,6 +4,7 @@ import {
   getLatestFilingId,
 } from './fcc-client.mjs'
 import { enrichRows } from './shared-enrich.mjs'
+import { readCacheMetadata } from './cache-store.mjs'
 
 export function createProxyApp() {
   const app = express()
@@ -33,15 +34,18 @@ export function createProxyApp() {
   app.get('/api/cache-status', async (_request, response) => {
     try {
       const latestFiling = await getLatestFiling()
+      const metadata = await readCacheMetadata()
+      const localSnapshot = metadata.localSnapshot ?? null
       response.json({
-        localSnapshot: null,
+        localSnapshot,
         remoteSnapshot: {
           processUuid: latestFiling.process_uuid,
           label: latestFiling.filing_subtype,
           filingType: latestFiling.filing_type,
         },
         checkedAt: new Date().toISOString(),
-        updateAvailable: false,
+        updateAvailable:
+          !localSnapshot || localSnapshot.processUuid !== latestFiling.process_uuid,
       })
     } catch (error) {
       response.status(500).json({

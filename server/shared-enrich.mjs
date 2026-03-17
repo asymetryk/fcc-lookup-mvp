@@ -4,6 +4,7 @@ import {
   getMobileDetail,
   searchFabricAddress,
 } from './fcc-client.mjs'
+import { getFixedProvidersFromCache } from './fixed-cache.mjs'
 
 export async function enrichRows(rows, filingId) {
   const results = []
@@ -34,6 +35,7 @@ async function enrichRow(row, filingId) {
 
     let detail = null
     let fixedNote = null
+    let fixedProviders = []
 
     try {
       const detailPayload = await getFabricDetail(filingId, bestMatch.location_id)
@@ -43,6 +45,25 @@ async function enrichRow(row, filingId) {
         detailError instanceof Error
           ? `Fixed provider detail is currently blocked by the FCC endpoint: ${detailError.message}`
           : 'Fixed provider detail is currently blocked by the FCC endpoint.'
+
+      fixedProviders = await getFixedProvidersFromCache({
+        filingId,
+        stateAbbr: bestMatch.state ?? standardized?.state ?? null,
+        cacheKey:
+          standardized?.censusBlock && standardized?.h3Res8
+            ? `geo:${standardized.censusBlock}:${standardized.h3Res8}`
+            : String(bestMatch.location_id),
+        numericLocationIds: [],
+        blockGeoid: standardized?.censusBlock ?? null,
+        h3Res8: standardized?.h3Res8 ?? null,
+      })
+
+      if (fixedProviders.length) {
+        fixedNote =
+          fixedProviders.some((provider) => provider.source === 'fcc_download_cache_geography')
+            ? 'Fixed provider detail was inferred from the downloaded FCC cache using the matched Census block and H3 cell because the live FCC detail endpoint rejected the request.'
+            : 'Fixed provider detail was loaded from the downloaded FCC cache because the live FCC detail endpoint rejected the request.'
+      }
     }
 
     const longitude = detail?.coordinates?.[0] ?? standardized?.coordinates?.x ?? null
@@ -52,18 +73,21 @@ async function enrichRow(row, filingId) {
         ? await getMobileDetail(filingId, latitude, longitude)
         : { data: [] }
 
-    const fixedProviders = (detail?.detail ?? []).map((provider) => ({
-      brandName: provider.brand_name,
-      holdingCompany: provider.holding_company_name,
-      technology: provider.technology_code_type,
-      maxDown: provider.maxdown,
-      maxUp: provider.maxup,
-      lowLatency: Boolean(provider.lowlatency),
-    }))
+    if (!fixedProviders.length) {
+      fixedProviders = (detail?.detail ?? []).map((provider) => ({
+        brandName: provider.brand_name,
+        holdingCompany: provider.holding_company_name,
+        technology: provider.technology_code_type,
+        maxDown: provider.maxdown,
+        maxUp: provider.maxup,
+        lowLatency: Boolean(provider.lowlatency),
+        source: 'fcc_live_api',
+      }))
+    }
 
     const mobileProviders = groupMobileProviders(mobilePayload.data ?? [])
     const addressChanged = needsManualReview(row, bestMatch, standardized)
-    const manualReview = addressChanged || Boolean(fixedNote)
+    const manualReview = addressChanged || (Boolean(fixedNote) && !fixedProviders.length)
 
     return {
       id: row.id,

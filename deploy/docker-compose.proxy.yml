@@ -9,6 +9,8 @@ services:
       PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET}
     ports:
       - "127.0.0.1:8788:8788"
+    volumes:
+      - ../data:/app/data
     restart: unless-stopped
 
   cloudflared:
